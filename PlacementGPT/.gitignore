@@ -7,5 +7,6 @@ env/
 .DS_Store
 backend/chroma_db/
 backend/uploads/
+backend/users.db
 dist/
 build/

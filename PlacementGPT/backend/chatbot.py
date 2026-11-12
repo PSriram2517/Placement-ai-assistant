@@ -103,7 +103,7 @@ class ChatbotService:
             response = requests.post(
                 f"{OLLAMA_BASE_URL}/api/generate", 
                 json=payload,
-                timeout=120
+                timeout=300
             )
             response.raise_for_status()
             

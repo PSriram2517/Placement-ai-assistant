@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import shutil
@@ -10,6 +10,9 @@ from chatbot import chatbot_service
 from pdf_processor import process_pdf
 from rag import rag_service
 from ingest import ingest_all_pdfs
+from auth import init_auth_db, register_user, login_user, get_user_by_token, logout_token
+
+init_auth_db()
 
 app = FastAPI(title="PlacementGPT API")
 
@@ -30,6 +33,42 @@ class ChatResponse(BaseModel):
     answer: str
     sources: list[dict]
     model: str
+
+class RegisterRequest(BaseModel):
+    name: str
+    email: str
+    password: str
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+def _extract_bearer_token(authorization: str | None) -> str | None:
+    if not authorization or not authorization.startswith("Bearer "):
+        return None
+    return authorization.removeprefix("Bearer ").strip()
+
+@app.post("/auth/register")
+def auth_register(request: RegisterRequest):
+    return register_user(request.name, request.email, request.password)
+
+@app.post("/auth/login")
+def auth_login(request: LoginRequest):
+    return login_user(request.email, request.password)
+
+@app.post("/auth/logout")
+def auth_logout(authorization: str | None = Header(default=None)):
+    token = _extract_bearer_token(authorization)
+    logout_token(token)
+    return {"message": "Logged out"}
+
+@app.get("/auth/me")
+def auth_me(authorization: str | None = Header(default=None)):
+    token = _extract_bearer_token(authorization)
+    user = get_user_by_token(token)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    return {"user": user}
 
 @app.get("/health")
 def health_check():
