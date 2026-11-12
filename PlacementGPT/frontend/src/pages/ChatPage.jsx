@@ -11,9 +11,17 @@ import KnowledgeBaseView from '../views/KnowledgeBaseView';
 import SavedConversationsView from '../views/SavedConversationsView';
 import InterviewTopicsView from '../views/InterviewTopicsView';
 import { askQuestion, checkHealth } from '../services/api';
-import { FiMessageSquare, FiAlertTriangle, FiArrowDown } from 'react-icons/fi';
+import { FiAlertTriangle, FiArrowDown, FiChevronRight } from 'react-icons/fi';
 
-const ChatPage = () => {
+const STARTER_PROMPTS = [
+  'How to prepare for TCS?',
+  'Explain binary search with time complexity',
+  'How should I structure my resume?',
+  'Common SQL interview questions',
+];
+
+const ChatPage = ({ user, onLogout }) => {
+  const storageKey = user?.email ? `placementgpt_conversations_${user.email}` : 'placementgpt_conversations';
   const [conversations, setConversations] = useState([]);
   const [activeId, setActiveId] = useState(null);
   const [activeTab, setActiveTab] = useState('chat');
@@ -24,13 +32,12 @@ const ChatPage = () => {
   const [uploadKey, setUploadKey] = useState(0);
   const [backendStatus, setBackendStatus] = useState({ checked: false, healthy: true, message: '' });
   const [showScrollButton, setShowScrollButton] = useState(false);
-  
+
   const messagesEndRef = useRef(null);
   const chatContainerRef = useRef(null);
 
-  // Load conversations from local storage
   useEffect(() => {
-    const saved = localStorage.getItem('placementgpt_conversations');
+    const saved = localStorage.getItem(storageKey);
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
@@ -47,18 +54,18 @@ const ChatPage = () => {
     } else {
       startNewChat();
     }
-    
-    // Check backend health
+
     checkBackendHealth();
-  }, []);
+  }, [storageKey]);
 
   const checkBackendHealth = async () => {
     const health = await checkHealth();
-    if (health.status !== 'healthy' || health.ollama !== 'connected') {
+    const isHealthy = health.status === 'healthy' && health.ollama === 'connected';
+    if (!isHealthy) {
       setBackendStatus({
         checked: true,
         healthy: false,
-        message: health.ollama_message || 'Backend server is not running or Ollama is not connected.'
+        message: health.ollama_message || 'Backend server is not running or Ollama is not connected'
       });
     } else {
       setBackendStatus({
@@ -67,14 +74,14 @@ const ChatPage = () => {
         message: ''
       });
     }
+    return isHealthy;
   };
 
-  // Save conversations to local storage when they change
   useEffect(() => {
     if (conversations.length > 0) {
-      localStorage.setItem('placementgpt_conversations', JSON.stringify(conversations));
+      localStorage.setItem(storageKey, JSON.stringify(conversations));
     }
-  }, [conversations]);
+  }, [conversations, storageKey]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -83,11 +90,7 @@ const ChatPage = () => {
   const handleScroll = () => {
     if (chatContainerRef.current) {
       const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
-      if (scrollHeight - scrollTop - clientHeight > 150) {
-        setShowScrollButton(true);
-      } else {
-        setShowScrollButton(false);
-      }
+      setShowScrollButton(scrollHeight - scrollTop - clientHeight > 150);
     }
   };
 
@@ -100,7 +103,7 @@ const ChatPage = () => {
   const startNewChat = () => {
     const newConv = {
       id: Date.now().toString(),
-      title: 'New Conversation',
+      title: 'New conversation',
       messages: [],
       createdAt: new Date().toISOString()
     };
@@ -110,12 +113,13 @@ const ChatPage = () => {
   };
 
   const deleteConversation = (id) => {
-    setConversations(prev => prev.filter(c => c.id !== id));
+    const remaining = conversations.filter(c => c.id !== id);
+    setConversations(remaining);
     if (activeId === id) {
-      const remaining = conversations.filter(c => c.id !== id);
       if (remaining.length > 0) {
         setActiveId(remaining[0].id);
       } else {
+        localStorage.removeItem(storageKey);
         startNewChat();
       }
     }
@@ -124,34 +128,30 @@ const ChatPage = () => {
   const clearAllChats = () => {
     setConversations([]);
     setActiveId(null);
-    localStorage.removeItem('placementgpt_conversations');
+    localStorage.removeItem(storageKey);
     startNewChat();
   };
 
   const handleSend = async (question) => {
     if (!activeConversation) return;
-    
-    // Make sure we are on the chat tab
+
     if (activeTab !== 'chat') {
       setActiveTab('chat');
     }
 
-    // Ensure backend is healthy before sending
     if (!backendStatus.healthy) {
-      await checkBackendHealth();
-      if (!backendStatus.healthy) return;
+      const isHealthy = await checkBackendHealth();
+      if (!isHealthy) return;
     }
 
-    const userMessage = { role: 'user', content: question };
-    
-    // Update conversation with user message
+    const userMessage = { role: 'user', content: question, timestamp: new Date().toISOString() };
+
     setConversations(prev => prev.map(conv => {
       if (conv.id === activeId) {
-        // Set title based on first question if not already set
-        const title = conv.messages.length === 0 
-          ? (question.length > 30 ? question.substring(0, 30) + '...' : question)
+        const title = conv.messages.length === 0
+          ? (question.length > 36 ? question.substring(0, 36) + '…' : question)
           : conv.title;
-          
+
         return {
           ...conv,
           title,
@@ -165,11 +165,12 @@ const ChatPage = () => {
 
     try {
       const response = await askQuestion(question, activeId);
-      
-      const assistantMessage = { 
-        role: 'assistant', 
+
+      const assistantMessage = {
+        role: 'assistant',
         content: response.answer,
-        sources: response.sources 
+        sources: response.sources,
+        timestamp: new Date().toISOString()
       };
 
       setConversations(prev => prev.map(conv => {
@@ -182,11 +183,12 @@ const ChatPage = () => {
         return conv;
       }));
     } catch (error) {
-      const errorMessage = { 
-        role: 'assistant', 
-        content: `**Error:** ${error.message}\n\nPlease check if your backend and Ollama are running correctly.` 
+      const errorMessage = {
+        role: 'assistant',
+        content: `**Error:** ${error.message}\n\nCheck that the backend and Ollama are running.`,
+        timestamp: new Date().toISOString()
       };
-      
+
       setConversations(prev => prev.map(conv => {
         if (conv.id === activeId) {
           return {
@@ -207,59 +209,77 @@ const ChatPage = () => {
     if (window.innerWidth < 1024) setIsMobileMenuOpen(false);
   };
 
+  const headerTitle =
+    activeTab === 'knowledge'
+      ? 'Knowledge base'
+      : activeTab === 'saved'
+        ? 'Saved conversations'
+        : activeTab === 'topics'
+          ? 'Interview topics'
+          : activeConversation?.title || 'PlacementGPT';
+
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-50 dark:bg-[#0f172a]">
-      {/* Left Sidebar */}
-      <Sidebar 
+    <div className="flex h-screen overflow-hidden bg-[#f7f4ee] dark:bg-[#161513]">
+      <Sidebar
         conversations={conversations}
         activeId={activeId}
         onSelect={handleSelectConversation}
         onNewChat={startNewChat}
         onDelete={deleteConversation}
         onOpenUpload={() => setIsUploadOpen(true)}
-        onOpenSettings={() => setIsSettingsOpen(true)}
         isMobileOpen={isMobileMenuOpen}
         onCloseMobile={() => setIsMobileMenuOpen(false)}
         activeTab={activeTab}
         onTabChange={setActiveTab}
+        isGenerating={isLoading}
+        ollamaConnected={backendStatus.healthy}
+        user={user}
+        onLogout={onLogout}
       />
 
-      {/* Main Chat Area */}
       <div className="flex-1 flex flex-col h-full w-full min-w-0 relative">
-        <Header 
-          title={activeConversation?.title} 
+        <Header
+          title={headerTitle}
           onMenuClick={() => setIsMobileMenuOpen(true)}
           onOpenSettings={() => setIsSettingsOpen(true)}
         />
-        
-        {/* Backend Warning Banner */}
+
         {backendStatus.checked && !backendStatus.healthy && (
-          <div className="bg-red-500 text-white p-3 text-sm text-center flex items-center justify-center space-x-2">
-            <FiAlertTriangle className="w-5 h-5" />
+          <div className="bg-[#dc2626] dark:bg-[#e5484d] text-white px-4 py-2 text-xs text-center flex items-center justify-center gap-2">
+            <FiAlertTriangle className="w-4 h-4 shrink-0" />
             <span>{backendStatus.message}</span>
           </div>
         )}
 
-        {/* Tab Routing */}
         {activeTab === 'chat' && (
           <>
-            <div 
+            <div
               className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar"
               ref={chatContainerRef}
               onScroll={handleScroll}
             >
               <div className="max-w-4xl mx-auto w-full">
                 {(!activeConversation || activeConversation.messages.length === 0) ? (
-                  <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
-                    <div className="w-20 h-20 bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/30 dark:to-purple-900/30 text-indigo-600 dark:text-indigo-400 rounded-3xl flex items-center justify-center mb-6 shadow-sm border border-indigo-100 dark:border-indigo-800/50">
-                      <FiMessageSquare className="w-10 h-10" />
-                    </div>
-                    <h2 className="text-3xl font-bold text-slate-800 dark:text-slate-100 mb-2">
-                      Welcome to PlacementGPT
+                  <div className="flex flex-col justify-center min-h-[60vh] max-w-xl mx-auto px-2 py-8">
+                    <h2 className="font-serif text-3xl font-normal text-[#1f1b16] dark:text-[#efe9de] mb-2 tracking-[-0.02em] leading-tight">
+                      Placement preparation, offline
                     </h2>
-                    <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto mb-10">
-                      Your offline AI assistant for job placements, technical interviews, resume building, and career preparation.
+                    <p className="text-sm text-[#5e554a] dark:text-[#aaa398] mb-6 leading-relaxed">
+                      Ask about coding interviews, company hiring stages, resume structure, or query your own study PDFs
                     </p>
+
+                    <div className="border border-[#1f1b16]/8 dark:border-[#efe9de]/8 bg-[#fdfbf7] dark:bg-[#1c1a18] rounded-xl divide-y divide-[#1f1b16]/8 dark:divide-[#efe9de]/8">
+                      {STARTER_PROMPTS.map((prompt) => (
+                        <button
+                          key={prompt}
+                          onClick={() => handleSend(prompt)}
+                          className="w-full px-4 py-3 flex items-center justify-between text-left text-sm text-[#1f1b16] dark:text-[#efe9de] hover:bg-[#efe9df]/60 dark:hover:bg-[#262421] transition-colors first:rounded-t-xl last:rounded-b-xl group"
+                        >
+                          <span>{prompt}</span>
+                          <FiChevronRight className="w-4 h-4 text-[#7b7266] dark:text-[#8a847a] group-hover:text-[#b45309] dark:group-hover:text-[#d97706] transition-colors shrink-0 ml-3" />
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 ) : (
                   <div className="pb-10">
@@ -274,16 +294,21 @@ const ChatPage = () => {
             </div>
 
             {showScrollButton && (
-              <button 
+              <button
                 onClick={scrollToBottom}
-                className="absolute bottom-28 right-8 md:right-12 bg-indigo-600 text-white p-3 rounded-full shadow-lg hover:bg-indigo-700 transition-all z-20 animate-fade-in flex items-center justify-center"
+                className="absolute bottom-24 right-6 md:right-10 bg-[#fdfbf7] dark:bg-[#262421] text-[#1f1b16] dark:text-[#efe9de] p-2.5 rounded-lg border border-[#1f1b16]/12 dark:border-[#efe9de]/12 hover:bg-[#efe9df] dark:hover:bg-[#302d29] transition-colors z-20 animate-fade-in flex items-center justify-center shadow-[0_1px_2px_rgba(0,0,0,0.05)]"
                 title="Scroll to bottom"
+                aria-label="Scroll to bottom"
               >
-                <FiArrowDown className="w-5 h-5" />
+                <FiArrowDown className="w-4 h-4" />
               </button>
             )}
 
-            <ChatInput onSend={handleSend} isLoading={isLoading || (!backendStatus.healthy && backendStatus.checked)} onOpenUpload={() => setIsUploadOpen(true)} />
+            <ChatInput
+              onSend={handleSend}
+              isLoading={isLoading || (!backendStatus.healthy && backendStatus.checked)}
+              onOpenUpload={() => setIsUploadOpen(true)}
+            />
           </>
         )}
 
@@ -292,9 +317,9 @@ const ChatPage = () => {
         )}
 
         {activeTab === 'saved' && (
-          <SavedConversationsView 
-            conversations={conversations} 
-            onSelectConversation={handleSelectConversation} 
+          <SavedConversationsView
+            conversations={conversations}
+            onSelectConversation={handleSelectConversation}
           />
         )}
 
@@ -303,20 +328,22 @@ const ChatPage = () => {
         )}
       </div>
 
-      {/* Right Sidebar (Suggested Questions) */}
       {activeTab === 'chat' && (
-        <RightSidebar onQuestionClick={handleSend} />
+        <RightSidebar
+          onQuestionClick={handleSend}
+          onExploreTopics={() => setActiveTab('topics')}
+        />
       )}
 
-      <UploadPDF 
-        isOpen={isUploadOpen} 
-        onClose={() => setIsUploadOpen(false)} 
+      <UploadPDF
+        isOpen={isUploadOpen}
+        onClose={() => setIsUploadOpen(false)}
         onUploadSuccess={() => setUploadKey(prev => prev + 1)}
       />
-      <SettingsModal 
-        isOpen={isSettingsOpen} 
-        onClose={() => setIsSettingsOpen(false)} 
-        onClearAllChats={clearAllChats} 
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        onClearAllChats={clearAllChats}
       />
     </div>
   );

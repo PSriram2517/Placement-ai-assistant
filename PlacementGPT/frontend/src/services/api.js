@@ -1,6 +1,7 @@
 import axios from 'axios';
 
 const API_URL = 'http://localhost:8000';
+const TOKEN_KEY = 'placementgpt_token';
 
 const api = axios.create({
   baseURL: API_URL,
@@ -8,6 +9,65 @@ const api = axios.create({
     'Content-Type': 'application/json',
   },
 });
+
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem(TOKEN_KEY);
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+const extractError = (error, fallback) => {
+  if (error.response?.data?.detail) {
+    return error.response.data.detail;
+  }
+  return fallback;
+};
+
+export const loginUser = async (email, password) => {
+  try {
+    const response = await api.post('/auth/login', { email, password });
+    localStorage.setItem(TOKEN_KEY, response.data.token);
+    return response.data;
+  } catch (error) {
+    throw new Error(extractError(error, 'Unable to sign in. Check that the backend is running.'));
+  }
+};
+
+export const registerUser = async (name, email, password) => {
+  try {
+    const response = await api.post('/auth/register', { name, email, password });
+    localStorage.setItem(TOKEN_KEY, response.data.token);
+    return response.data;
+  } catch (error) {
+    throw new Error(extractError(error, 'Unable to create account. Check that the backend is running.'));
+  }
+};
+
+export const logoutUser = async () => {
+  try {
+    await api.post('/auth/logout');
+  } catch {
+    // Clear local session even if the server is unreachable
+  } finally {
+    localStorage.removeItem(TOKEN_KEY);
+  }
+};
+
+export const getCurrentUser = async () => {
+  const token = localStorage.getItem(TOKEN_KEY);
+  if (!token) return null;
+  try {
+    const response = await api.get('/auth/me');
+    return response.data.user;
+  } catch (error) {
+    if (error.response?.status === 401) {
+      localStorage.removeItem(TOKEN_KEY);
+    }
+    return null;
+  }
+};
 
 export const checkHealth = async () => {
   try {
@@ -30,10 +90,7 @@ export const askQuestion = async (question, conversationId) => {
     });
     return response.data;
   } catch (error) {
-    if (error.response && error.response.data && error.response.data.detail) {
-      throw new Error(error.response.data.detail);
-    }
-    throw new Error('An error occurred while connecting to the server. Is the backend running?');
+    throw new Error(extractError(error, 'An error occurred while connecting to the server. Is the backend running?'));
   }
 };
 
@@ -53,10 +110,7 @@ export const uploadPdf = async (file, onProgress) => {
     });
     return response.data;
   } catch (error) {
-    if (error.response && error.response.data && error.response.data.detail) {
-      throw new Error(error.response.data.detail);
-    }
-    throw new Error('Failed to upload PDF. Ensure the backend is running.');
+    throw new Error(extractError(error, 'Failed to upload PDF. Ensure the backend is running.'));
   }
 };
 
@@ -71,4 +125,3 @@ export const getDocuments = async () => {
 };
 
 export default api;
-
