@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FiUpload, FiDatabase, FiFileText, FiRefreshCw } from 'react-icons/fi';
+import { FiUpload, FiFileText, FiRefreshCw } from 'react-icons/fi';
 import { getDocuments } from '../services/api';
 
 const KnowledgeBaseView = ({ onOpenUpload }) => {
@@ -26,63 +26,76 @@ const KnowledgeBaseView = ({ onOpenUpload }) => {
   };
 
   return (
-    <div className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar">
-      <div className="max-w-4xl mx-auto w-full">
-        <div className="flex items-center space-x-4 mb-8">
-          <div className="p-3 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-xl">
-            <FiDatabase className="w-6 h-6" />
-          </div>
-          <div>
-            <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Knowledge Base</h2>
-            <p className="text-slate-500 dark:text-slate-400 text-sm">Manage documents uploaded to the local LLM.</p>
-          </div>
+    <div className="flex-1 overflow-y-auto p-6 md:p-8 custom-scrollbar">
+      <div className="max-w-3xl mx-auto w-full">
+        <div className="mb-8">
+          <h2 className="font-serif text-3xl font-normal text-[#1f1b16] dark:text-[#efe9de] tracking-[-0.02em] leading-tight">
+            Knowledge base
+          </h2>
+          <p className="text-sm text-[#5e554a] dark:text-[#aaa398] mt-1.5">
+            Manage PDFs indexed by the local model
+          </p>
         </div>
 
-        <div 
+        <button
+          type="button"
           onClick={onOpenUpload}
-          className="border-2 border-dashed border-indigo-300 dark:border-indigo-700/50 bg-indigo-50/50 dark:bg-indigo-900/10 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-2xl p-10 text-center cursor-pointer transition-colors mb-8 group"
+          className="w-full border border-dashed border-[#1f1b16]/20 dark:border-[#efe9de]/20 bg-[#fdfbf7] dark:bg-[#1c1a18] hover:bg-[#efe9df]/60 dark:hover:bg-[#262421] rounded-xl p-8 text-center cursor-pointer transition-colors mb-8"
         >
-          <div className="w-16 h-16 bg-white dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm group-hover:scale-105 transition-transform">
-            <FiUpload className="w-6 h-6 text-indigo-500" />
-          </div>
-          <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-200 mb-1">Upload New Document</h3>
-          <p className="text-sm text-slate-500">PDFs up to 20MB are supported</p>
-        </div>
+          <FiUpload className="w-5 h-5 mx-auto text-[#b45309] dark:text-[#d97706] mb-3" />
+          <p className="text-sm font-medium text-[#1f1b16] dark:text-[#efe9de] mb-1">
+            Upload new document
+          </p>
+          <p className="text-xs text-[#7b7266] dark:text-[#8a847a]">
+            PDF files up to 20 MB
+          </p>
+        </button>
 
         <div>
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider">Uploaded Documents</h3>
-            <button 
+          <div className="flex items-center justify-between mb-2 px-1">
+            <h3 className="text-xs font-medium text-[#7b7266] dark:text-[#8a847a]">
+              Indexed documents
+            </h3>
+            <button
               onClick={fetchDocs}
-              className="flex items-center space-x-1 text-xs text-indigo-500 hover:text-indigo-700 transition-colors"
+              className="flex items-center gap-1.5 text-xs font-medium text-[#b45309] dark:text-[#d97706] hover:underline transition-colors"
               disabled={loading}
             >
-              <FiRefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
+              <FiRefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
               <span>Refresh</span>
             </button>
           </div>
-          
+
           {loading ? (
-            <div className="text-center py-8 text-slate-500">Loading documents...</div>
+            <div className="py-8 text-center text-sm text-[#7b7266] dark:text-[#8a847a]">
+              Loading documents…
+            </div>
           ) : documents.length === 0 ? (
-            <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-8 text-center text-slate-500 dark:text-slate-400">
-              <FiFileText className="w-10 h-10 mx-auto mb-3 opacity-50" />
-              <p>No documents found.</p>
-              <p className="text-xs mt-1 opacity-70">Upload a PDF to see it here.</p>
+            <div className="bg-[#fdfbf7] dark:bg-[#1c1a18] border border-[#1f1b16]/8 dark:border-[#efe9de]/8 rounded-xl p-8 text-center">
+              <FiFileText className="w-5 h-5 mx-auto mb-2 text-[#7b7266] dark:text-[#8a847a]" />
+              <p className="text-sm font-medium text-[#1f1b16] dark:text-[#efe9de]">
+                No documents found
+              </p>
+              <p className="text-xs mt-1 text-[#7b7266] dark:text-[#8a847a]">
+                Upload a PDF to index it here
+              </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-[#fdfbf7] dark:bg-[#1c1a18] border border-[#1f1b16]/8 dark:border-[#efe9de]/8 rounded-xl divide-y divide-[#1f1b16]/8 dark:divide-[#efe9de]/8">
               {documents.map((doc, idx) => (
-                <div key={idx} className="flex items-center space-x-3 p-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl hover:shadow-sm transition-shadow">
-                  <div className="p-2 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-500 rounded-lg">
-                    <FiFileText className="w-5 h-5" />
+                <div
+                  key={doc.id || idx}
+                  className="flex items-center justify-between gap-4 px-4 py-3"
+                >
+                  <div className="flex items-center gap-3 overflow-hidden">
+                    <FiFileText className="w-4 h-4 text-[#7b7266] dark:text-[#8a847a] shrink-0" />
+                    <span className="text-sm font-medium text-[#1f1b16] dark:text-[#efe9de] truncate">
+                      {doc.name}
+                    </span>
                   </div>
-                  <div className="overflow-hidden">
-                    <h4 className="font-medium text-slate-700 dark:text-slate-200 truncate">{doc.name}</h4>
-                    <p className="text-xs text-slate-400 mt-0.5">
-                      {formatSize(doc.size)} • {doc.type}
-                    </p>
-                  </div>
+                  <span className="text-xs text-[#7b7266] dark:text-[#8a847a] font-mono tabular-nums shrink-0">
+                    {formatSize(doc.size)} · {doc.type}
+                  </span>
                 </div>
               ))}
             </div>

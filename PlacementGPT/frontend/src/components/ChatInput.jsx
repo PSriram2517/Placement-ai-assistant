@@ -13,20 +13,12 @@ const ChatInput = ({ onSend, isLoading, onOpenUpload }) => {
       recognitionRef.current = new SpeechRecognition();
       recognitionRef.current.continuous = false;
       recognitionRef.current.interimResults = false;
-
       recognitionRef.current.onresult = (event) => {
         const transcript = event.results[0][0].transcript;
         setInput((prev) => prev + (prev ? ' ' : '') + transcript);
       };
-
-      recognitionRef.current.onerror = (event) => {
-        console.error('Speech recognition error', event.error);
-        setIsRecording(false);
-      };
-
-      recognitionRef.current.onend = () => {
-        setIsRecording(false);
-      };
+      recognitionRef.current.onerror = () => setIsRecording(false);
+      recognitionRef.current.onend = () => setIsRecording(false);
     }
   }, []);
 
@@ -39,7 +31,6 @@ const ChatInput = ({ onSend, isLoading, onOpenUpload }) => {
         recognitionRef.current?.start();
         setIsRecording(true);
       } catch (e) {
-        console.error('Microphone access denied or error occurred', e);
         setIsRecording(false);
       }
     }
@@ -52,18 +43,14 @@ const ChatInput = ({ onSend, isLoading, onOpenUpload }) => {
     }
   };
 
-  useEffect(() => {
-    adjustTextareaHeight();
-  }, [input]);
+  useEffect(() => { adjustTextareaHeight(); }, [input]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
     if (input.trim() && !isLoading) {
       onSend(input);
       setInput('');
-      if (textareaRef.current) {
-        textareaRef.current.style.height = 'auto';
-      }
+      if (textareaRef.current) textareaRef.current.style.height = 'auto';
     }
   };
 
@@ -75,17 +62,19 @@ const ChatInput = ({ onSend, isLoading, onOpenUpload }) => {
   };
 
   return (
-    <div className="p-4 bg-transparent pb-6 w-full max-w-4xl mx-auto">
-      <form 
+    <div className="px-4 pb-5 pt-2 w-full max-w-4xl mx-auto">
+      <form
         onSubmit={handleSubmit}
-        className="relative flex items-end bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] dark:shadow-none transition-all p-1.5 focus-within:ring-2 focus-within:ring-indigo-500/20"
+        className="relative flex items-end gap-1 bg-[#fdfbf7] dark:bg-[#1c1a18] border border-[#1f1b16]/12 dark:border-[#efe9de]/12 rounded-xl p-2 focus-within:border-[#b45309] dark:focus-within:border-[#d97706] transition-colors"
       >
         <button
           type="button"
           onClick={onOpenUpload}
-          className="p-3 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors shrink-0 mb-1"
+          className="p-2.5 rounded-lg text-[#7b7266] dark:text-[#8a847a] hover:text-[#1f1b16] dark:hover:text-[#efe9de] hover:bg-[#1f1b16]/5 dark:hover:bg-[#efe9de]/5 transition-colors shrink-0"
+          title="Upload PDF"
+          aria-label="Upload PDF"
         >
-          <FiPaperclip className="w-5 h-5" />
+          <FiPaperclip className="w-4 h-4" />
         </button>
 
         <textarea
@@ -93,39 +82,41 @@ const ChatInput = ({ onSend, isLoading, onOpenUpload }) => {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Ask anything about placements..."
+          placeholder="Ask about interviews, companies, or PDFs"
           disabled={isLoading}
           rows={1}
-          className="flex-1 max-h-[200px] bg-transparent text-slate-800 dark:text-slate-100 placeholder-slate-400 resize-none outline-none py-3.5 px-2 min-h-[48px] custom-scrollbar disabled:opacity-50 text-sm"
+          className="flex-1 max-h-[200px] bg-transparent text-[#1f1b16] dark:text-[#efe9de] placeholder-[#7b7266] dark:placeholder-[#8a847a] resize-none outline-none py-2.5 px-2 min-h-[40px] custom-scrollbar disabled:opacity-40 text-sm leading-relaxed"
         />
 
-        <div className="flex items-center space-x-1 shrink-0 mb-1 mr-1">
+        <div className="flex items-center gap-1 shrink-0">
           <button
             type="button"
             onClick={toggleRecording}
-            className={`p-3 transition-colors ${isRecording ? 'text-red-500 hover:text-red-600 animate-pulse' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
-            title={isRecording ? "Stop recording" : "Start recording"}
+            className={`p-2.5 rounded-lg transition-colors ${
+              isRecording
+                ? 'text-[#dc2626] dark:text-[#e5484d] bg-[#dc2626]/10 dark:bg-[#e5484d]/10'
+                : 'text-[#7b7266] dark:text-[#8a847a] hover:text-[#1f1b16] dark:hover:text-[#efe9de] hover:bg-[#1f1b16]/5 dark:hover:bg-[#efe9de]/5'
+            }`}
+            title={isRecording ? 'Stop recording' : 'Start voice input'}
+            aria-label={isRecording ? 'Stop recording' : 'Start voice input'}
           >
-            <FiMic className="w-5 h-5" />
+            <FiMic className="w-4 h-4" />
           </button>
-          
+
           <button
             type="submit"
             disabled={!input.trim() || isLoading}
-            className="p-3 rounded-full bg-indigo-600 text-white hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:bg-slate-300 dark:disabled:bg-slate-700 disabled:cursor-not-allowed shadow-sm"
+            className="p-2.5 rounded-lg bg-[#b45309] hover:bg-[#92400e] text-white dark:bg-[#d97706] dark:hover:bg-[#f59e0b] dark:text-[#12110f] transition-colors disabled:opacity-35 disabled:cursor-not-allowed active:scale-[0.98]"
+            aria-label="Send message"
           >
-            <FiSend className="w-5 h-5" />
+            <FiSend className="w-4 h-4" />
           </button>
         </div>
       </form>
-      <div className="text-center mt-3">
-        <span className="text-[10px] text-slate-500 flex justify-center items-center space-x-1">
-          <svg className="w-3 h-3 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <span>PlacementGPT runs locally using Llama through Ollama. Answers may require verification.</span>
-        </span>
-      </div>
+
+      <p className="text-center mt-2 text-xs text-[#7b7266] dark:text-[#8a847a]">
+        Runs locally via Ollama · verify critical facts
+      </p>
     </div>
   );
 };

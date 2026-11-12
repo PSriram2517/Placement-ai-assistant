@@ -5,10 +5,9 @@ const ThemeToggle = () => {
   const [isDark, setIsDark] = useState(false);
 
   useEffect(() => {
-    // Check local storage or system preference on mount
     const savedTheme = localStorage.getItem('theme');
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    
+
     if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
       setIsDark(true);
       document.documentElement.classList.add('dark');
@@ -30,11 +29,11 @@ const ThemeToggle = () => {
   return (
     <button
       onClick={toggleTheme}
-      className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 transition-colors"
-      aria-label="Toggle Dark Mode"
-      title="Toggle Dark Mode"
+      className="p-2 rounded-lg text-[#5e554a] dark:text-[#aaa398] hover:bg-[#1f1b16]/5 dark:hover:bg-[#efe9de]/5 transition-colors"
+      aria-label="Toggle dark mode"
+      title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
     >
-      {isDark ? <FiSun className="w-5 h-5" /> : <FiMoon className="w-5 h-5" />}
+      {isDark ? <FiSun className="w-4 h-4" /> : <FiMoon className="w-4 h-4" />}
     </button>
   );
 };
